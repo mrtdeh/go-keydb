@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/redis/rueidis"
 )
@@ -33,6 +34,7 @@ type Config struct {
 type KeyVal struct {
 	Key string
 	Val string
+	Ex  time.Duration
 }
 
 func Init(opt Config) error {
@@ -74,8 +76,11 @@ func SetMulti(kvs []KeyVal) error {
 
 	var cmds = make(rueidis.Commands, 0, len(kvs))
 	for _, m := range kvs {
-		cmd := client.conn.B().Set().Key(m.Key).Value(m.Val).Build()
-		cmds = append(cmds, cmd)
+		cmd := client.conn.B().Set().Key(m.Key).Value(m.Val)
+		if m.Ex != 0 {
+			cmd.Ex(m.Ex)
+		}
+		cmds = append(cmds, cmd.Build())
 	}
 	for _, resp := range client.conn.DoMulti(ctx, cmds...) {
 		if err := resp.Error(); err != nil {
