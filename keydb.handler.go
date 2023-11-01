@@ -54,7 +54,7 @@ func Init(opt Config) error {
 
 	rueidisClient, err := rueidis.NewClient(redisopt)
 	if err != nil {
-		return fmt.Errorf("error in connecting to redis : %s", err.Error())
+		return fmt.Errorf("error in connecting to redis: %s", err.Error())
 	}
 
 	res := rueidisClient.Do(ctx, rueidisClient.B().Ping().Build())
