@@ -81,13 +81,18 @@ func Set(key, val string, exp time.Duration) error {
 	}
 	return nil
 }
-func Get(key string) (*rueidis.RedisResult, error) {
+func Get(key string) ([]byte, error) {
 	cmd := client.conn.B().Get().Key(key).Build()
 	resp := client.conn.Do(ctx, cmd)
 	if err := resp.Error(); err != nil {
 		return nil, err
 	}
-	return &resp, nil
+
+	data, err := resp.AsBytes()
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func Scan(cursor uint64, pattern string, count int64) ([]string, error) {
