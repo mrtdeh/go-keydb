@@ -70,10 +70,10 @@ func Init(opt Config) error {
 	return nil
 }
 
-func Set(kv KeyVal) error {
-	cmd := client.conn.B().Set().Key(kv.Key).Value(kv.Val)
-	if kv.Ex != 0 {
-		cmd.Ex(kv.Ex)
+func Set(key, val string, exp time.Duration) error {
+	cmd := client.conn.B().Set().Key(key).Value(val)
+	if exp != 0 {
+		cmd.Ex(exp)
 	}
 	resp := client.conn.Do(ctx, cmd.Build())
 	if err := resp.Error(); err != nil {
