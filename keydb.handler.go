@@ -11,31 +11,35 @@ import (
 	"github.com/redis/rueidis"
 )
 
-type Client struct {
-	conn rueidis.Client
-}
+type (
+	Client struct {
+		conn rueidis.Client
+	}
 
-var client *Client
+	PubData []byte
 
-var ctx = context.Background()
+	Config struct {
+		Host      string
+		Port      int
+		Pass      string
+		DB        int
+		TLSConfig *tls.Config
+	}
 
-type PubData []byte
+	KeyVal struct {
+		Key string
+		Val string
+		Ex  time.Duration
+	}
+)
 
-var pub sync.RWMutex
+var (
+	pub    sync.RWMutex
+	ctx    = context.Background()
+	client *Client
 
-type Config struct {
-	Host      string
-	Port      int
-	Pass      string
-	DB        int
-	TLSConfig *tls.Config
-}
-
-type KeyVal struct {
-	Key string
-	Val string
-	Ex  time.Duration
-}
+	Nil = rueidis.Nil
+)
 
 func Init(opt Config) error {
 	pub.Lock()
@@ -95,8 +99,8 @@ func Get(key string) ([]byte, error) {
 	return data, nil
 }
 
-func Scan(cursor uint64, pattern string, count int64) ([]string, error) {
-	cmd := client.conn.B().Scan().Cursor(cursor).Match(pattern).Count(count).Build()
+func Scan(cursor uint64, pattern string) ([]string, error) {
+	cmd := client.conn.B().Scan().Cursor(cursor).Match(pattern).Build()
 	resp := client.conn.Do(ctx, cmd)
 	if err := resp.Error(); err != nil {
 		return nil, err
