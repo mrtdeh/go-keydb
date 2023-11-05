@@ -70,6 +70,35 @@ func Init(opt Config) error {
 	return nil
 }
 
+func Set(kv KeyVal) error {
+	cmd := client.conn.B().Set().Key(kv.Key).Value(kv.Val)
+	if kv.Ex != 0 {
+		cmd.Ex(kv.Ex)
+	}
+	resp := client.conn.Do(ctx, cmd.Build())
+	if err := resp.Error(); err != nil {
+		return err
+	}
+	return nil
+}
+func Get(key string) (*rueidis.RedisResult, error) {
+	cmd := client.conn.B().Get().Key(key).Build()
+	resp := client.conn.Do(ctx, cmd)
+	if err := resp.Error(); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func Scan(cursor uint64, pattern string, count int64) (*rueidis.RedisResult, error) {
+	cmd := client.conn.B().Scan().Cursor(cursor).Match(pattern).Count(count).Build()
+	resp := client.conn.Do(ctx, cmd)
+	if err := resp.Error(); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func SetMulti(kvs []KeyVal) error {
 	pub.Lock()
 	defer pub.Unlock()
