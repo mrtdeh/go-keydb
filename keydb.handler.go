@@ -3,6 +3,7 @@ package keydb
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -45,15 +46,17 @@ var (
 )
 
 var handleError ErrorFn
-var lastErr string
+var lastErr error
 
 func genHandleError(inFn ErrorFn) ErrorFn {
 	return func(err error) {
 		if inFn != nil {
-			if err.Error() != lastErr {
-				inFn(err)
-				lastErr = err.Error()
+			if !errors.Is(err, lastErr) {
+				if err != nil {
+					inFn(err)
+				}
 			}
+			lastErr = err
 		}
 	}
 }
@@ -62,10 +65,10 @@ func (c *Client) pingHandler(dur time.Duration) {
 	for {
 		res := c.conn.Do(ctx, c.conn.B().Ping().Build())
 		if res.Error() != nil {
-			handleError(res.Error())
 			log.Println("ping err : ", res.Error())
 		}
 
+		handleError(res.Error())
 		time.Sleep(dur)
 	}
 }
