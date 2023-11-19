@@ -5,9 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
-	"net"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/redis/rueidis"
@@ -52,23 +50,11 @@ func Init(opt Config) error {
 		return nil
 	}
 
-	d := net.Dialer{
-		ControlContext: func(ctx context.Context, network, address string, c syscall.RawConn) error {
-			select {
-			case <-ctx.Done():
-				fmt.Println("ctx.Done() ********************")
-			}
-
-			return nil
-		},
-	}
-
 	redisopt := rueidis.ClientOption{
 		InitAddress: []string{fmt.Sprintf("%s:%d", opt.Host, opt.Port)},
 		Password:    opt.Pass,
 		TLSConfig:   opt.TLSConfig,
 		SelectDB:    opt.DB,
-		Dialer:      d,
 	}
 
 	rueidisClient, err := rueidis.NewClient(redisopt)
