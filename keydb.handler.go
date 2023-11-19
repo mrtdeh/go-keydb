@@ -18,13 +18,15 @@ type (
 
 	PubData []byte
 
+	ErrorFn func(err error)
+
 	Config struct {
-		Host             string
-		Port             int
-		Pass             string
-		DB               int
-		TLSConfig        *tls.Config
-		VerifyConnection func(err error)
+		Host      string
+		Port      int
+		Pass      string
+		DB        int
+		TLSConfig *tls.Config
+		OnError   ErrorFn
 	}
 
 	KeyVal struct {
@@ -42,6 +44,32 @@ var (
 	Nil = rueidis.Nil
 )
 
+var handleError ErrorFn
+var lastErr string
+
+func genHandleError(inFn ErrorFn) ErrorFn {
+	return func(err error) {
+		if inFn != nil {
+			if err.Error() != lastErr {
+				inFn(err)
+				lastErr = err.Error()
+			}
+		}
+	}
+}
+
+func (c *Client) pingHandler(dur time.Duration) {
+	for {
+		res := c.conn.Do(ctx, c.conn.B().Ping().Build())
+		if res.Error() != nil {
+			handleError(res.Error())
+			log.Println("ping err : ", res.Error())
+		}
+
+		time.Sleep(dur)
+	}
+}
+
 func Init(opt Config) error {
 	pub.Lock()
 	defer pub.Unlock()
@@ -49,6 +77,8 @@ func Init(opt Config) error {
 	if client != nil {
 		return nil
 	}
+
+	handleError = genHandleError(opt.OnError)
 
 	redisopt := rueidis.ClientOption{
 		InitAddress: []string{fmt.Sprintf("%s:%d", opt.Host, opt.Port)},
@@ -59,17 +89,21 @@ func Init(opt Config) error {
 
 	rueidisClient, err := rueidis.NewClient(redisopt)
 	if err != nil {
+		handleError(err)
 		return fmt.Errorf("error in connecting to redis: %s", err.Error())
 	}
 
 	res := rueidisClient.Do(ctx, rueidisClient.B().Ping().Build())
 	if res.Error() != nil {
+		handleError(res.Error())
 		return fmt.Errorf("redis ping failed : %s", res.Error().Error())
 	}
 
 	client = &Client{
 		conn: rueidisClient,
 	}
+
+	go client.pingHandler(time.Second * 5)
 
 	log.Println("successfuly connect to redis server")
 	return nil
