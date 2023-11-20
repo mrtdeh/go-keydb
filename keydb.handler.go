@@ -21,12 +21,13 @@ type (
 	ErrorFn func(err error)
 
 	Config struct {
-		Host      string
-		Port      int
-		Pass      string
-		DB        int
-		TLSConfig *tls.Config
-		OnError   ErrorFn
+		Host              string
+		Port              int
+		Pass              string
+		DB                int
+		TLSConfig         *tls.Config
+		OnConnectingError ErrorFn
+		OnConnected       func()
 	}
 
 	KeyVal struct {
@@ -45,6 +46,7 @@ var (
 )
 
 var handleError ErrorFn
+var handleConnect func()
 var lastErr error
 
 func genHandleError(inFn ErrorFn) ErrorFn {
@@ -71,15 +73,27 @@ func genHandleError(inFn ErrorFn) ErrorFn {
 }
 
 func (c *Client) pingHandler(dur time.Duration) {
+	var connected bool
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		res := c.conn.Do(ctx, c.conn.B().Ping().Build())
-		if res.Error() != nil {
-			log.Println("ping err : ", res.Error())
-		}
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			res := c.conn.Do(ctx, c.conn.B().Ping().Build())
+			if res.Error() != nil {
+				connected = false
+				log.Println("ping err : ", res.Error())
+				handleError(res.Error())
+				return
+			}
 
-		handleError(res.Error())
+			if handleConnect != nil && !connected {
+				handleConnect()
+				connected = true
+			}
+
+			handleError(nil)
+		}()
+
 		time.Sleep(dur)
 	}
 }
@@ -92,7 +106,8 @@ func Init(opt Config) error {
 		return nil
 	}
 
-	handleError = genHandleError(opt.OnError)
+	handleError = genHandleError(opt.OnConnectingError)
+	handleConnect = opt.OnConnected
 
 	redisopt := rueidis.ClientOption{
 		InitAddress: []string{fmt.Sprintf("%s:%d", opt.Host, opt.Port)},
