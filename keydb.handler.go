@@ -3,7 +3,6 @@ package keydb
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -51,7 +50,17 @@ var lastErr error
 func genHandleError(inFn ErrorFn) ErrorFn {
 	return func(err error) {
 		if inFn != nil {
-			if !errors.Is(err, lastErr) {
+			var e1, e2 string
+			if err != nil {
+				e1 = err.Error()
+			}
+			if lastErr != nil {
+				e2 = lastErr.Error()
+			}
+			if e1 == context.DeadlineExceeded.Error() {
+				return
+			}
+			if e1 != e2 {
 				if err != nil {
 					inFn(err)
 				}
@@ -63,6 +72,8 @@ func genHandleError(inFn ErrorFn) ErrorFn {
 
 func (c *Client) pingHandler(dur time.Duration) {
 	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
 		res := c.conn.Do(ctx, c.conn.B().Ping().Build())
 		if res.Error() != nil {
 			log.Println("ping err : ", res.Error())
