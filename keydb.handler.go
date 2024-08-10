@@ -164,18 +164,18 @@ func Get(key string) ([]byte, error) {
 }
 
 func Scan(cursor uint64, pattern string) ([]string, error) {
-	cmd := client.conn.B().Scan().Cursor(cursor).Match(pattern).Build()
+	cmd := client.conn.B().Keys().Pattern(pattern).Build()
 	resp := client.conn.Do(ctx, cmd)
 	if err := resp.Error(); err != nil {
 		return nil, err
 	}
 
-	r, err := resp.AsScanEntry()
+	r, err := resp.AsStrSlice()
 	if err != nil {
 		return nil, err
 	}
 
-	return r.Elements, nil
+	return r, nil
 }
 
 func SetMulti(kvs []KeyVal) error {
